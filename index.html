@@ -1,0 +1,814 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>복리 계산기</title>
+
+  <style>
+    :root{
+      --bg:#0b0f14;
+      --text:#e8eef6;
+      --muted:#93a4b8;
+      --border:rgba(255,255,255,.10);
+
+      --cardInput:#0f2a22;
+      --cardResult:#2b1730;
+      --cardChart:#121826;
+
+      --accent:#5aa2ff;
+      --accent2:#ffd166;
+      --danger:#ff5c5c;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      font-family:system-ui,-apple-system,Segoe UI,Roboto,Apple SD Gothic Neo,Noto Sans KR,sans-serif;
+      background:var(--bg);
+      color:var(--text);
+    }
+    .wrap{max-width:1100px;margin:0 auto;padding:20px}
+    h1{font-size:22px;margin:6px 0 18px}
+
+    .card{
+      border:1px solid var(--border);
+      border-radius:14px;
+      padding:14px;
+      margin-bottom:14px;
+    }
+    .card h2{font-size:15px;margin:0 0 10px;color:var(--muted);font-weight:900}
+    .inputCard{background:var(--cardInput)}
+    .resultCard{background:var(--cardResult)}
+    .chartCard{background:var(--cardChart)}
+
+    label{display:block;font-size:12px;color:var(--muted);margin:10px 0 6px}
+    input, select{
+      width:100%;
+      padding:10px 10px;
+      border-radius:10px;
+      border:1px solid var(--border);
+      background:rgba(255,255,255,.04);
+      color:var(--text);
+      outline:none;
+    }
+    input:focus{border-color:rgba(90,162,255,.6)}
+
+    /* 드롭박스: 글씨 검정 */
+    select{
+      border:1px solid rgba(0,0,0,.25);
+      background:rgba(255,255,255,.92);
+      color:#111;
+    }
+    select:focus{border-color:rgba(90,162,255,.9)}
+
+    .row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    @media (max-width: 980px){.row{grid-template-columns:1fr}}
+    .row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+    @media (max-width: 980px){.row3{grid-template-columns:1fr}}
+
+    .btns{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}
+    button{
+      border:1px solid var(--border);
+      background:rgba(255,255,255,.06);
+      color:var(--text);
+      padding:10px 12px;
+      border-radius:12px;
+      cursor:pointer;
+      font-weight:900
+    }
+    button.primary{
+      background:linear-gradient(135deg, rgba(90,162,255,.55), rgba(90,162,255,.20));
+      border-color:rgba(90,162,255,.75);
+      box-shadow: 0 10px 24px rgba(90,162,255,.18);
+      padding:12px 16px;
+      font-size:15px;
+    }
+    button.ghost{background:rgba(255,255,255,.03)}
+    button:hover{filter:brightness(1.08)}
+
+    .kpi{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+    @media (max-width:980px){.kpi{grid-template-columns:repeat(2,1fr)}}
+    .kpi .box{
+      background:rgba(255,255,255,.05);
+      border:1px solid var(--border);
+      border-radius:12px;
+      padding:10px
+    }
+    .kpi .t{font-size:12px;color:var(--muted)}
+    .kpi .v{font-size:16px;font-weight:1000;margin-top:6px}
+
+    .small{font-size:12px;color:var(--muted);line-height:1.45}
+    .warn{color:var(--accent2);font-size:12px;margin-top:8px}
+
+    .extrasWrap{
+      margin-top:10px;
+      padding:10px;
+      border:1px solid var(--border);
+      border-radius:12px;
+      background:rgba(255,255,255,.03);
+    }
+    .extrasHead{
+      display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;
+      margin-bottom:8px;
+    }
+    .extrasTitle{font-size:12px;color:var(--muted);font-weight:900}
+    .extrasGrid{
+      display:grid;
+      grid-template-columns: 1fr 1fr 44px;
+      gap:8px;
+      align-items:center;
+    }
+    .extrasGrid .th{
+      font-size:12px;color:var(--muted);
+      padding:4px 2px;
+    }
+    .delBtn{
+      width:44px;
+      border-color:rgba(255,92,92,.4);
+      background:rgba(255,92,92,.08);
+      font-weight:900;
+    }
+    .delBtn:hover{filter:brightness(1.1)}
+    .hint{font-size:12px;color:var(--muted);margin-top:8px}
+
+    .rangeCard{
+      display:flex;gap:12px;align-items:center;flex-wrap:wrap;
+      padding:10px;border:1px solid var(--border);border-radius:12px;background:rgba(255,255,255,.03)
+    }
+    .rangeGroup{display:flex;flex-direction:column;gap:6px;min-width:220px}
+    .rangeGroup .cap{font-size:12px;color:var(--muted)}
+    .rangeGroup .val{font-size:12px}
+    .rangeInputs{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+    .rangeInputs input[type="range"]{padding:0}
+    .pill{padding:6px 10px;border:1px solid var(--border);border-radius:999px;background:rgba(255,255,255,.04);font-size:12px}
+
+    .chartBox{height:340px;position:relative}
+    .chartBox canvas{
+      width:100% !important;height:100% !important;
+      background:rgba(255,255,255,.02);
+      border:1px solid var(--border);
+      border-radius:12px;
+      padding:10px;
+    }
+
+    table{width:100%;border-collapse:collapse;font-size:13px}
+    th, td{border-bottom:1px solid rgba(255,255,255,.10);padding:9px 8px;text-align:right}
+    th:first-child, td:first-child{text-align:left}
+    th:nth-child(2), td:nth-child(2){text-align:left}
+  </style>
+</head>
+
+<body>
+<div class="wrap">
+  <h1>복리 계산기</h1>
+
+  <div class="card inputCard">
+    <h2>입력</h2>
+
+    <div class="row3">
+      <div>
+        <label>투자 시작 나이</label>
+        <input id="startAge" type="number" min="0" value="30" />
+      </div>
+      <div>
+        <label>연평균 수익률(%)</label>
+        <input id="annualReturn" type="number" step="0.01" value="12" />
+      </div>
+      <div>
+        <label>월이율 방식</label>
+        <select id="rateMode">
+          <option value="effective" selected>유효 월이율 (추천)</option>
+          <option value="nominal">명목 월이율 (연%/12)</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="row">
+      <div>
+        <label>초기 투자원금(원)</label>
+        <input id="principal" inputmode="numeric" autocomplete="off" />
+        <div class="small">숫자 입력 중 자동으로 콤마(,)가 붙습니다.</div>
+      </div>
+      <div>
+        <label>매월 적립식 매수금액(원)</label>
+        <input id="monthly" inputmode="numeric" autocomplete="off" />
+      </div>
+    </div>
+
+    <div class="row">
+      <div>
+        <label>적립기간(년)</label>
+        <input id="investYears" type="number" min="0" value="25" />
+      </div>
+      <div>
+        <label>적립기간(월)</label>
+        <input id="investMonths" type="number" min="0" max="11" value="0" />
+      </div>
+    </div>
+
+    <div class="row">
+      <div>
+        <label>거치기간(년)</label>
+        <input id="holdYears" type="number" min="0" value="45" />
+      </div>
+      <div>
+        <label>거치기간(월)</label>
+        <input id="holdMonths" type="number" min="0" max="11" value="0" />
+      </div>
+    </div>
+
+    <div class="extrasWrap">
+      <div class="extrasHead">
+        <div class="extrasTitle">추가매수</div>
+        <button class="ghost" id="addExtraRow" type="button">+ 행 추가</button>
+      </div>
+
+      <div class="extrasGrid" id="extrasGrid">
+        <div class="th">월차</div>
+        <div class="th">금액(원)</div>
+        <div class="th"></div>
+      </div>
+
+      <div class="hint">월차: 0=시작 시점, 1=1개월차… (투자기간 N개월 이내만 반영)</div>
+    </div>
+
+    <div class="btns">
+      <button class="primary" id="runBtn" type="button">계산하기</button>
+      <button id="clearExtras" type="button">추가매수 비우기</button>
+    </div>
+
+    <div class="warn" id="warn"></div>
+    <div class="small">* 입력을 멈추면(약 0.25초) 자동으로 결과가 갱신됩니다.</div>
+  </div>
+
+  <div class="card resultCard">
+    <h2>결과</h2>
+    <div class="kpi">
+      <div class="box">
+        <div class="t">총 투자원금(최종)</div>
+        <div class="v" id="k_totalPrincipal">-</div>
+      </div>
+      <div class="box">
+        <div class="t">최종자산(추정)</div>
+        <div class="v" id="k_finalAsset">-</div>
+      </div>
+      <div class="box">
+        <div class="t">최종이익</div>
+        <div class="v" id="k_profit">-</div>
+      </div>
+      <div class="box">
+        <div class="t">수익률(%)</div>
+        <div class="v" id="k_roi">-</div>
+      </div>
+    </div>
+
+    <div style="margin-top:14px">
+      <div class="small" style="margin-bottom:8px">추가매수별 최종가치(추정)</div>
+      <div style="overflow:auto; border:1px solid var(--border); border-radius:12px">
+        <table>
+          <thead>
+            <tr>
+              <th>번호</th>
+              <th>월차</th>
+              <th>금액</th>
+              <th>최종가치(FV)</th>
+              <th>배수</th>
+            </tr>
+          </thead>
+          <tbody id="extraFVTable"></tbody>
+        </table>
+      </div>
+      <div class="small" style="margin-top:8px">
+        * 투자기간(N개월)을 넘는 월차는 기본 설정에서는 반영하지 않습니다.
+      </div>
+    </div>
+  </div>
+
+  <div class="card chartCard">
+    <h2>연도별 그래프</h2>
+
+    <div class="rangeCard" style="margin-bottom:12px">
+      <div class="rangeGroup">
+        <div class="cap">표시 범위 (연차)</div>
+        <div class="val">
+          <span class="pill">시작: <b id="rangeMinLabel">1</b></span>
+          <span class="pill">끝: <b id="rangeMaxLabel">1</b></span>
+        </div>
+      </div>
+
+      <div class="rangeInputs">
+        <div style="min-width:220px">
+          <div class="cap small">시작 연차</div>
+          <input id="rangeMin" type="range" min="1" max="1" value="1" />
+        </div>
+        <div style="min-width:220px">
+          <div class="cap small">끝 연차</div>
+          <input id="rangeMax" type="range" min="1" max="1" value="1" />
+        </div>
+      </div>
+    </div>
+
+    <div class="small" style="margin-bottom:8px">원금 + 이익 (누적 막대) — X축: 나이</div>
+    <div class="chartBox">
+      <canvas id="stackChart"></canvas>
+    </div>
+
+    <div style="margin-top:14px">
+      <div class="small" style="margin-bottom:8px">연도별 표 (현재 범위만, 최대 100행)</div>
+      <div style="overflow:auto; border:1px solid var(--border); border-radius:12px">
+        <table>
+          <thead>
+            <tr>
+              <th>연차</th>
+              <th>나이</th>
+              <th>투자원금</th>
+              <th>이익</th>
+              <th>자산</th>
+            </tr>
+          </thead>
+          <tbody id="yearTable"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script>
+  const $ = (id) => document.getElementById(id);
+
+  // ---------- Debounce (실시간 자동 적용) ----------
+  function debounce(fn, wait=250){
+    let t = null;
+    return (...args) => {
+      clearTimeout(t);
+      t = setTimeout(() => fn(...args), wait);
+    };
+  }
+  const autoRender = debounce(() => render(), 250);
+
+  // ---------- 콤마 입력 ----------
+  function stripNonDigits(s){ return (s || "").replace(/[^\d]/g, ""); }
+  function formatCommaFromDigits(d){
+    if(!d) return "";
+    const n = Number(d);
+    if(!Number.isFinite(n)) return "";
+    return n.toLocaleString("ko-KR");
+  }
+  function attachCommaInput(el, defaultValue){
+    el.value = formatCommaFromDigits(String(defaultValue));
+    el.addEventListener("input", () => {
+      const raw = stripNonDigits(el.value);
+      el.value = formatCommaFromDigits(raw);
+      autoRender();
+    });
+    el.addEventListener("blur", () => {
+      const raw = stripNonDigits(el.value);
+      el.value = formatCommaFromDigits(raw);
+      autoRender();
+    });
+  }
+  function readCommaInput(el){
+    const raw = stripNonDigits(el.value);
+    return raw ? Number(raw) : 0;
+  }
+
+  // ---------- 유틸 ----------
+  function monthsFromYM(y, m){ return (Number(y)||0)*12 + (Number(m)||0); }
+  function monthlyRate(annual, mode){
+    const r = annual;
+    if(mode === "nominal") return r/12;
+    return Math.pow(1+r, 1/12) - 1;
+  }
+
+  function approxKRFixed1(n){
+    const x = Math.abs(Number(n));
+    if(!Number.isFinite(x) || x === 0) return "약 0원";
+    if(x >= 1e8){
+      const v = x / 1e8;
+      return `약 ${v.toFixed(1)}억`;
+    }
+    if(x >= 1e7){
+      const v = x / 1e7;
+      return `약 ${v.toFixed(0)}천만원`;
+    }
+    if(x >= 1e6){
+      const v = x / 1e6;
+      return `약 ${v.toFixed(0)}백만원`;
+    }
+    return `약 ${x.toFixed(0)}원`;
+  }
+
+  function fmtKRW(n){
+    return Number(n).toLocaleString("ko-KR", {maximumFractionDigits:0}) + "원";
+  }
+  function fmtKRWWithApprox(n){
+    const sign = Number(n) < 0 ? "-" : "";
+    return `${sign}${fmtKRW(Math.abs(Number(n)))} (${sign}${approxKRFixed1(n)})`;
+  }
+  function fmtPct(x){ return (x*100).toFixed(2) + "%"; }
+
+  function makeTickValues(maxValue){
+    const base = [0, 1e6, 1e7, 1e8, 5e8, 1e9];
+    if(maxValue <= 1e9) return base;
+
+    const out = base.slice();
+    let scale = 1e9;
+    while(scale < maxValue){
+      const candidates = [2*scale, 5*scale, 10*scale];
+      for(const v of candidates){
+        if(v > out[out.length-1]) out.push(v);
+        if(v >= maxValue) break;
+      }
+      scale *= 10;
+    }
+    return out;
+  }
+  function yTickLabelKR(v){
+    const n = Number(v);
+    if(!Number.isFinite(n)) return v;
+    if(n === 0) return "0";
+    if(n === 1e6) return "100만원";
+    if(n === 1e7) return "1000만원";
+    if(n === 1e8) return "1억";
+    if(n === 5e8) return "5억";
+    if(n === 1e9) return "10억";
+    if(n >= 1e8) return `${(n/1e8).toLocaleString("ko-KR")}억`;
+    return n.toLocaleString("ko-KR");
+  }
+
+  // ---------- 추가매수 UI ----------
+  const extrasGrid = $("extrasGrid");
+
+  function createExtraRow(monthVal="", amountValDigits=""){
+    const monthInput = document.createElement("input");
+    monthInput.type = "number";
+    monthInput.min = "0";
+    monthInput.placeholder = "예: 24";
+    if(monthVal !== "") monthInput.value = monthVal;
+
+    const amountInput = document.createElement("input");
+    amountInput.inputMode = "numeric";
+    amountInput.autocomplete = "off";
+    amountInput.placeholder = "예: 10,000,000";
+
+    // amount 콤마 자동 + 자동렌더
+    amountInput.value = amountValDigits ? formatCommaFromDigits(amountValDigits) : "";
+    amountInput.addEventListener("input", () => {
+      const raw = stripNonDigits(amountInput.value);
+      amountInput.value = formatCommaFromDigits(raw);
+      autoRender();
+    });
+    amountInput.addEventListener("blur", () => {
+      const raw = stripNonDigits(amountInput.value);
+      amountInput.value = formatCommaFromDigits(raw);
+      autoRender();
+    });
+
+    monthInput.addEventListener("input", autoRender);
+    monthInput.addEventListener("blur", autoRender);
+
+    const del = document.createElement("button");
+    del.textContent = "✕";
+    del.className = "delBtn";
+    del.type = "button";
+    del.addEventListener("click", () => {
+      monthInput.remove();
+      amountInput.remove();
+      del.remove();
+      render();
+    });
+
+    extrasGrid.appendChild(monthInput);
+    extrasGrid.appendChild(amountInput);
+    extrasGrid.appendChild(del);
+  }
+
+  function readExtrasFromUI(){
+    const kids = Array.from(extrasGrid.children).slice(3);
+    const extras = [];
+    for(let i=0;i<kids.length;i+=3){
+      const monthInput = kids[i];
+      const amountInput = kids[i+1];
+      if(!(monthInput instanceof HTMLInputElement) || !(amountInput instanceof HTMLInputElement)) continue;
+
+      const m = Number(monthInput.value);
+      const a = (() => {
+        const raw = stripNonDigits(amountInput.value);
+        return raw ? Number(raw) : 0;
+      })();
+
+      if(Number.isFinite(m) && monthInput.value !== "" && a > 0){
+        extras.push({m, a});
+      }
+    }
+    return extras;
+  }
+
+  function clearExtrasUI(){
+    Array.from(extrasGrid.children).slice(3).forEach(n => n.remove());
+  }
+
+  // ---------- 계산 ----------
+  function calcFinalAndSeries(params){
+    const {
+      startAge, annualReturnPct, rateMode,
+      P, PMT, investY, investM, holdY, holdM, extras
+    } = params;
+
+    const N = monthsFromYM(investY, investM);
+    const H = monthsFromYM(holdY, holdM);
+    const T = N + H;
+    const r = (Number(annualReturnPct)||0)/100;
+    const i = monthlyRate(r, rateMode);
+
+    let extraPrincipal = 0;
+    for(const e of extras){
+      if(e.m >= 0 && e.m <= N) extraPrincipal += e.a;
+    }
+    const totalPrincipal = P + PMT * N + extraPrincipal;
+
+    let finalAsset;
+    if(T === 0){
+      finalAsset = P + extraPrincipal;
+    }else if(i === 0){
+      finalAsset = P + PMT * N + extraPrincipal;
+    }else{
+      const fvP = P * Math.pow(1+i, T);
+      const fvAnnAtN = PMT * ((Math.pow(1+i, N) - 1) / i);
+      const fvPMT = fvAnnAtN * Math.pow(1+i, T - N);
+
+      let fvExtra = 0;
+      for(const e of extras){
+        if(e.m >= 0 && e.m <= N){
+          fvExtra += e.a * Math.pow(1+i, T - e.m);
+        }
+      }
+      finalAsset = fvP + fvPMT + fvExtra;
+    }
+    const profit = finalAsset - totalPrincipal;
+    const roi = totalPrincipal === 0 ? 0 : profit / totalPrincipal;
+
+    const Y = T > 0 ? Math.ceil(T/12) : 0;
+    const series = [];
+    for(let y=1; y<=Y; y++){
+      const m = Math.min(y*12, T);
+      const mInvest = Math.min(m, N);
+
+      let extraPrinToM = 0;
+      for(const e of extras){
+        if(e.m >= 0 && e.m <= mInvest) extraPrinToM += e.a;
+      }
+      const principalPaid = P + PMT*mInvest + extraPrinToM;
+
+      let asset;
+      if(i === 0){
+        asset = principalPaid;
+      }else{
+        const fvP_y = P * Math.pow(1+i, m);
+        const fvAnnAtMI = PMT * ((Math.pow(1+i, mInvest)-1)/i);
+        const fvPMT_y = fvAnnAtMI * Math.pow(1+i, m - mInvest);
+
+        let fvExtra_y = 0;
+        for(const e of extras){
+          if(e.m >= 0 && e.m <= mInvest){
+            fvExtra_y += e.a * Math.pow(1+i, m - e.m);
+          }
+        }
+        asset = fvP_y + fvPMT_y + fvExtra_y;
+      }
+      const profitY = asset - principalPaid;
+      const age = startAge + y;
+
+      series.push({year:y, age, principalPaid, asset, profit:profitY});
+    }
+
+    return {N,H,T,i,totalPrincipal,finalAsset,profit,roi,series};
+  }
+
+  // ---------- 차트/표 ----------
+  let stackChart;
+  let fullSeries = [];
+
+  function sliceByYear(series, yMin, yMax){
+    return series.filter(d => d.year >= yMin && d.year <= yMax);
+  }
+
+  function renderYearTable(series){
+    const tb = $("yearTable");
+    tb.innerHTML = "";
+    const show = series.slice(0, 100);
+    for(const row of show){
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>${row.year}</td>
+        <td>${row.age}세</td>
+        <td>${fmtKRW(row.principalPaid)} (${approxKRFixed1(row.principalPaid)})</td>
+        <td>${fmtKRW(row.profit)} (${approxKRFixed1(row.profit)})</td>
+        <td>${fmtKRW(row.asset)} (${approxKRFixed1(row.asset)})</td>
+      `;
+      tb.appendChild(tr);
+    }
+  }
+
+  function renderExtraFVTable(params, out){
+    const tb = $("extraFVTable");
+    tb.innerHTML = "";
+
+    const extras = params.extras;
+    const N = out.N;
+    const T = out.T;
+    const i = out.i;
+
+    if(extras.length === 0){
+      const tr = document.createElement("tr");
+      tr.innerHTML = `<td colspan="5" style="text-align:left">추가매수 입력이 없습니다.</td>`;
+      tb.appendChild(tr);
+      return;
+    }
+
+    let idx = 1;
+    for(const e of extras){
+      let fv = NaN, mult = NaN;
+
+      if(e.m >= 0 && e.m <= N){
+        fv = (i === 0) ? e.a : e.a * Math.pow(1+i, T - e.m);
+        mult = e.a === 0 ? 0 : fv / e.a;
+      }
+
+      const fvText = Number.isFinite(fv) ? `${fmtKRW(fv)} (${approxKRFixed1(fv)})` : "N개월 초과(미반영)";
+      const multText = Number.isFinite(mult) ? `${mult.toFixed(2)}x` : "-";
+
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>${idx}</td>
+        <td>${e.m}</td>
+        <td>${fmtKRW(e.a)} (${approxKRFixed1(e.a)})</td>
+        <td>${fvText}</td>
+        <td>${multText}</td>
+      `;
+      tb.appendChild(tr);
+      idx++;
+    }
+  }
+
+  function updateChart(){
+    const yMin = Number($("rangeMin").value);
+    const yMax = Number($("rangeMax").value);
+    $("rangeMinLabel").textContent = yMin;
+    $("rangeMaxLabel").textContent = yMax;
+
+    const s = sliceByYear(fullSeries, yMin, yMax);
+
+    const labels = s.map(d => `${d.age}`);
+    const principal = s.map(d => Math.round(d.principalPaid));
+    const profit = s.map(d => Math.round(d.profit));
+
+    const totals = principal.map((p,i)=>Math.max(0, p + profit[i]));
+    const maxTotal = Math.max(0, ...totals);
+    const tickValues = makeTickValues(maxTotal);
+
+    const fixedTicksPlugin = {
+      id: "fixedTicksPlugin",
+      afterBuildTicks(scale) {
+        if(scale.id !== "y") return;
+        scale.ticks = tickValues.map(v => ({ value: v }));
+      }
+    };
+
+    if(stackChart) stackChart.destroy();
+    stackChart = new Chart($("stackChart"), {
+      type: "bar",
+      data: {
+        labels,
+        datasets: [
+          { label: "투자원금", data: principal, stack: "s" },
+          { label: "이익", data: profit, stack: "s" }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: "index", intersect: false },
+        scales: {
+          x: { stacked: true, title: { display: true, text: "나이(세)" } },
+          y: {
+            stacked: true,
+            type: "linear",
+            min: 0,
+            max: tickValues[tickValues.length - 1],
+            ticks: { callback: (v) => yTickLabelKR(v) }
+          }
+        },
+        plugins: {
+          tooltip: {
+            callbacks: {
+              label: (ctx) => {
+                const v = ctx.parsed.y;
+                return `${ctx.dataset.label}: ${fmtKRW(v)} (${approxKRFixed1(v)})`;
+              }
+            }
+          }
+        }
+      },
+      plugins: [fixedTicksPlugin]
+    });
+
+    renderYearTable(s);
+  }
+
+  function render(){
+    const warn = $("warn");
+    warn.textContent = "";
+
+    const params = {
+      startAge: Number($("startAge").value)||0,
+      annualReturnPct: Number($("annualReturn").value)||0,
+      rateMode: $("rateMode").value,
+      P: readCommaInput($("principal")),
+      PMT: readCommaInput($("monthly")),
+      investY: Number($("investYears").value)||0,
+      investM: Number($("investMonths").value)||0,
+      holdY: Number($("holdYears").value)||0,
+      holdM: Number($("holdMonths").value)||0,
+      extras: readExtrasFromUI()
+    };
+
+    if(params.investM > 11 || params.holdM > 11){
+      warn.textContent = "월 입력은 0~11 범위로 넣어주세요.";
+    }
+
+    const out = calcFinalAndSeries(params);
+
+    $("k_totalPrincipal").textContent = fmtKRWWithApprox(out.totalPrincipal);
+    $("k_finalAsset").textContent = fmtKRWWithApprox(out.finalAsset);
+    $("k_profit").textContent = fmtKRWWithApprox(out.profit);
+    $("k_roi").textContent = fmtPct(out.roi);
+
+    renderExtraFVTable(params, out);
+
+    fullSeries = out.series;
+
+    const Y = fullSeries.length || 1;
+    const rMin = $("rangeMin");
+    const rMax = $("rangeMax");
+    rMin.min = "1"; rMin.max = String(Y);
+    rMax.min = "1"; rMax.max = String(Y);
+
+    // keep current selection if possible
+    const prevMin = Number(rMin.value)||1;
+    const prevMax = Number(rMax.value)||Y;
+    rMin.value = String(Math.min(Math.max(prevMin, 1), Y));
+    rMax.value = String(Math.min(Math.max(prevMax, 1), Y));
+    if(Number(rMin.value) > Number(rMax.value)) rMin.value = rMax.value;
+
+    updateChart();
+  }
+
+  // sliders
+  $("rangeMin").addEventListener("input", (e) => {
+    const minV = Number(e.target.value);
+    const maxEl = $("rangeMax");
+    if(minV > Number(maxEl.value)) maxEl.value = String(minV);
+    updateChart();
+  });
+  $("rangeMax").addEventListener("input", (e) => {
+    const maxV = Number(e.target.value);
+    const minEl = $("rangeMin");
+    if(maxV < Number(minEl.value)) minEl.value = String(maxV);
+    updateChart();
+  });
+
+  // input listeners (auto)
+  ["startAge","annualReturn","investYears","investMonths","holdYears","holdMonths"].forEach(id=>{
+    $(id).addEventListener("input", autoRender);
+    $(id).addEventListener("change", autoRender);
+  });
+  $("rateMode").addEventListener("change", autoRender);
+
+  // buttons
+  $("runBtn").addEventListener("click", render);
+
+  $("clearExtras").addEventListener("click", () => {
+    clearExtrasUI();
+    createExtraRow("", "");
+    render();
+  });
+
+  $("addExtraRow").addEventListener("click", () => {
+    createExtraRow("", "");
+    autoRender();
+  });
+
+  // init comma inputs (and attach auto render within)
+  attachCommaInput($("principal"), 55000000);
+  attachCommaInput($("monthly"), 2000000);
+
+  // init extra rows
+  clearExtrasUI();
+  createExtraRow("", "");
+
+  render();
+</script>
+</body>
+</html>
