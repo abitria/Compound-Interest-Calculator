@@ -48,6 +48,9 @@
     .chartCard{background:var(--cardChart)}
 
     label{display:block;font-size:12px;color:var(--muted);margin:10px 0 6px}
+
+    /* ✅ 여기서 input/select 공통 스타일을 확실히 잡아줘서
+       PC에서도 "흰 박스"가 안 나오게 함(브라우저 기본 스타일 덮어쓰기) */
     input, select{
       width:100%;
       padding:10px 10px;
@@ -57,17 +60,25 @@
       color:var(--text);
       outline:none;
       -webkit-tap-highlight-color: transparent;
+      appearance:none;
+      -webkit-appearance:none;
+      -moz-appearance:none;
     }
     input:focus{border-color:rgba(90,162,255,.6)}
+
+    /* ✅ 추가매수/행추가 영역의 "동적 생성 input"도 동일하게 다크 적용 보장 */
+    .extrasWrap input{
+      background:rgba(255,255,255,.04) !important;
+      color:var(--text) !important;
+      border:1px solid var(--border) !important;
+    }
+    .extrasWrap input::placeholder{color:rgba(147,164,184,.85)}
 
     /* select: PC/모바일 동일한 다크 톤 + 화살표 */
     select{
       background: var(--selectBg);
       color: var(--selectText);
       border: 1px solid var(--selectBorder);
-      appearance: none;
-      -webkit-appearance: none;
-      -moz-appearance: none;
       background-image:
         linear-gradient(45deg, transparent 50%, rgba(232,238,246,.85) 50%),
         linear-gradient(135deg, rgba(232,238,246,.85) 50%, transparent 50%);
@@ -246,7 +257,6 @@
       <div class="hint">월차: 0=시작 시점, 1=1개월차… (투자기간 N개월 이내만 반영)</div>
     </div>
 
-    <!-- ✅ 계산하기/추가매수 비우기 버튼 삭제 -->
     <div class="warn" id="warn"></div>
     <div class="small">* 입력을 멈추면(약 0.25초) 자동으로 결과가 갱신됩니다.</div>
   </div>
@@ -349,7 +359,7 @@
 <script>
   const $ = (id) => document.getElementById(id);
 
-  // ---------- Debounce (실시간 자동 적용) ----------
+  // ---------- Debounce ----------
   function debounce(fn, wait=250){
     let t = null;
     return (...args) => {
@@ -359,41 +369,22 @@
   }
   const autoRender = debounce(() => render(), 250);
 
-  // ---------- 포커스 시 "빈칸으로 지우고 입력대기" (PC/모바일 동일) ----------
-  function attachClearOnFocus(el, { keepZero=false } = {}){
-    const shouldClear = () => {
-      const tag = (el.tagName || "").toLowerCase();
-      if(tag === "select") return false;
-      if(el.disabled || el.readOnly) return false;
-      if(el.value === "") return false;
+  // ---------- 포커스 시 빈칸(PC/모바일 동일) ----------
+  function attachClearOnFocus(el){
+    const tag = (el.tagName || "").toLowerCase();
+    if(tag === "select") return;
 
-      if(keepZero){
-        const raw = (el.value || "").replace(/[^\d.-]/g, "");
-        if(raw === "0" || raw === "0.0" || raw === "0.00") return false;
-      }
-      return true;
-    };
-
-    const onFocus = () => {
+    el.addEventListener("focus", () => {
       setTimeout(() => {
-        if(shouldClear()){
+        if(el.value !== ""){
           el.value = "";
-          // 콤마 입력칸 등: 포맷/렌더 연결을 위해 input 이벤트 한번 발생
           el.dispatchEvent(new Event("input", { bubbles: true }));
-        }else{
-          el.select?.();
         }
       }, 0);
-    };
-
-    el.addEventListener("focus", onFocus);
-    // PC에서 클릭이 먼저 들어오는 케이스 대비(포커스 유도)
-    el.addEventListener("mousedown", () => {
-      // noop
     });
   }
 
-  // ---------- 콤마 입력 ----------
+  // ---------- 콤마 ----------
   function stripNonDigits(s){ return (s || "").replace(/[^\d]/g, ""); }
   function formatCommaFromDigits(d){
     if(!d) return "";
@@ -432,18 +423,9 @@
   function approxKRFixed1(n){
     const x = Math.abs(Number(n));
     if(!Number.isFinite(x) || x === 0) return "약 0원";
-    if(x >= 1e8){
-      const v = x / 1e8;
-      return `약 ${v.toFixed(1)}억`;
-    }
-    if(x >= 1e7){
-      const v = x / 1e7;
-      return `약 ${v.toFixed(0)}천만원`;
-    }
-    if(x >= 1e6){
-      const v = x / 1e6;
-      return `약 ${v.toFixed(0)}백만원`;
-    }
+    if(x >= 1e8) return `약 ${(x/1e8).toFixed(1)}억`;
+    if(x >= 1e7) return `약 ${(x/1e7).toFixed(0)}천만원`;
+    if(x >= 1e6) return `약 ${(x/1e6).toFixed(0)}백만원`;
     return `약 ${x.toFixed(0)}원`;
   }
 
@@ -456,7 +438,7 @@
   }
   function fmtPct(x){ return (x*100).toFixed(2) + "%"; }
 
-  // ---------- Y축 동적 스케일(작은 금액도 자동 확대) ----------
+  // ---------- Y축 동적 ----------
   function niceCeil(x){
     if(x <= 0) return 0;
     const exp = Math.floor(Math.log10(x));
@@ -468,14 +450,13 @@
     const m = Math.max(0, Number(maxValue) || 0);
     if(m === 0) return { ticks:[0,1], max:1 };
 
-    const top = niceCeil(m * 1.08);   // 여유 8%
-    const targetTicks = 6;           // 6~7개 정도 느낌
+    const top = niceCeil(m * 1.08);
+    const targetTicks = 6;
     const step = niceCeil(top / targetTicks);
 
     const ticks = [0];
     for(let v = step; v < top; v += step) ticks.push(v);
     ticks.push(top);
-
     return { ticks, max: top };
   }
   function yTickLabelKR(v){
@@ -508,7 +489,6 @@
     amountInput.placeholder = "예: 10,000,000";
     attachClearOnFocus(amountInput);
 
-    // amount 콤마 자동 + 자동렌더
     amountInput.value = amountValDigits ? formatCommaFromDigits(amountValDigits) : "";
     amountInput.addEventListener("input", () => {
       const raw = stripNonDigits(amountInput.value);
@@ -568,10 +548,7 @@
 
   // ---------- 계산 ----------
   function calcFinalAndSeries(params){
-    const {
-      startAge, annualReturnPct, rateMode,
-      P, PMT, investY, investM, holdY, holdM, extras
-    } = params;
+    const { startAge, annualReturnPct, rateMode, P, PMT, investY, investM, holdY, holdM, extras } = params;
 
     const N = monthsFromYM(investY, investM);
     const H = monthsFromYM(holdY, holdM);
@@ -603,6 +580,7 @@
       }
       finalAsset = fvP + fvPMT + fvExtra;
     }
+
     const profit = finalAsset - totalPrincipal;
     const roi = totalPrincipal === 0 ? 0 : profit / totalPrincipal;
 
@@ -634,16 +612,16 @@
         }
         asset = fvP_y + fvPMT_y + fvExtra_y;
       }
+
       const profitY = asset - principalPaid;
       const age = startAge + y;
-
       series.push({year:y, age, principalPaid, asset, profit:profitY});
     }
 
     return {N,H,T,i,totalPrincipal,finalAsset,profit,roi,series};
   }
 
-  // ---------- 표/그래프 렌더 ----------
+  // ---------- 렌더 ----------
   let stackChart;
   let fullSeries = [];
 
@@ -718,7 +696,6 @@
 
     const s = sliceByYear(fullSeries, yMin, yMax);
 
-    // X축: 나이 숫자만 유지
     const labels = s.map(d => `${d.age}`);
     const principal = s.map(d => Math.round(d.principalPaid));
     const profit = s.map(d => Math.round(d.profit));
@@ -841,15 +818,11 @@
 
   // input listeners (auto)
   ["startAge","annualReturn","investYears","investMonths","holdYears","holdMonths"].forEach(id=>{
+    attachClearOnFocus($(id));
     $(id).addEventListener("input", autoRender);
     $(id).addEventListener("change", autoRender);
   });
   $("rateMode").addEventListener("change", autoRender);
-
-  // 포커스 시 빈칸 처리(PC/모바일 동일)
-  ["startAge","annualReturn","investYears","investMonths","holdYears","holdMonths"].forEach(id=>{
-    attachClearOnFocus($(id));
-  });
 
   // init comma inputs
   attachCommaInput($("principal"), 0);
