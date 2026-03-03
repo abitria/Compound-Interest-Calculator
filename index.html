@@ -20,7 +20,7 @@
       --accent2:#ffd166;
       --danger:#ff5c5c;
 
-      /* select 다크 톤 */
+      /* select 다크 톤 (PC/모바일 동일) */
       --selectBg: rgba(255,255,255,.06);
       --selectBorder: rgba(255,255,255,.18);
       --selectText: #e8eef6;
@@ -60,7 +60,7 @@
     }
     input:focus{border-color:rgba(90,162,255,.6)}
 
-    /* 드롭박스(select) - 다크 톤으로 통일 */
+    /* select: PC/모바일 동일한 다크 톤 + 화살표 */
     select{
       background: var(--selectBg);
       color: var(--selectText);
@@ -88,6 +88,18 @@
     @media (max-width: 980px){.row{grid-template-columns:1fr}}
     .row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
     @media (max-width: 980px){.row3{grid-template-columns:1fr}}
+
+    button{
+      border:1px solid var(--border);
+      background:rgba(255,255,255,.06);
+      color:var(--text);
+      padding:10px 12px;
+      border-radius:12px;
+      cursor:pointer;
+      font-weight:900
+    }
+    button.ghost{background:rgba(255,255,255,.03)}
+    button:hover{filter:brightness(1.08)}
 
     .kpi{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
     @media (max-width:980px){.kpi{grid-template-columns:repeat(2,1fr)}}
@@ -127,12 +139,9 @@
     }
     .delBtn{
       width:44px;
-      border:1px solid rgba(255,92,92,.4);
+      border-color:rgba(255,92,92,.4);
       background:rgba(255,92,92,.08);
-      color:var(--text);
       font-weight:900;
-      border-radius:12px;
-      cursor:pointer;
     }
     .delBtn:hover{filter:brightness(1.1)}
     .hint{font-size:12px;color:var(--muted);margin-top:8px}
@@ -237,6 +246,7 @@
       <div class="hint">월차: 0=시작 시점, 1=1개월차… (투자기간 N개월 이내만 반영)</div>
     </div>
 
+    <!-- ✅ 계산하기/추가매수 비우기 버튼 삭제 -->
     <div class="warn" id="warn"></div>
     <div class="small">* 입력을 멈추면(약 0.25초) 자동으로 결과가 갱신됩니다.</div>
   </div>
@@ -349,18 +359,38 @@
   }
   const autoRender = debounce(() => render(), 250);
 
-  // ---------- 포커스 시 "지우고 입력대기" 체감: 전체선택 ----------
-  // (모바일/PC 모두: 바로 숫자 치면 기존 값이 사라지고 새 값으로 입력됨)
-  function attachSelectAllOnFocus(el){
-    const selectAll = () => {
-      try{
-        // iOS에서 즉시 selection이 먹히지 않는 경우가 있어 microtask로 한번 더
-        el.select?.();
-        setTimeout(() => el.select?.(), 0);
-      }catch(_){}
+  // ---------- 포커스 시 "빈칸으로 지우고 입력대기" (PC/모바일 동일) ----------
+  function attachClearOnFocus(el, { keepZero=false } = {}){
+    const shouldClear = () => {
+      const tag = (el.tagName || "").toLowerCase();
+      if(tag === "select") return false;
+      if(el.disabled || el.readOnly) return false;
+      if(el.value === "") return false;
+
+      if(keepZero){
+        const raw = (el.value || "").replace(/[^\d.-]/g, "");
+        if(raw === "0" || raw === "0.0" || raw === "0.00") return false;
+      }
+      return true;
     };
-    el.addEventListener("focus", selectAll);
-    el.addEventListener("click", selectAll);
+
+    const onFocus = () => {
+      setTimeout(() => {
+        if(shouldClear()){
+          el.value = "";
+          // 콤마 입력칸 등: 포맷/렌더 연결을 위해 input 이벤트 한번 발생
+          el.dispatchEvent(new Event("input", { bubbles: true }));
+        }else{
+          el.select?.();
+        }
+      }, 0);
+    };
+
+    el.addEventListener("focus", onFocus);
+    // PC에서 클릭이 먼저 들어오는 케이스 대비(포커스 유도)
+    el.addEventListener("mousedown", () => {
+      // noop
+    });
   }
 
   // ---------- 콤마 입력 ----------
@@ -373,7 +403,7 @@
   }
   function attachCommaInput(el, defaultValue){
     el.value = formatCommaFromDigits(String(defaultValue));
-    attachSelectAllOnFocus(el);
+    attachClearOnFocus(el);
 
     el.addEventListener("input", () => {
       const raw = stripNonDigits(el.value);
@@ -426,32 +456,36 @@
   }
   function fmtPct(x){ return (x*100).toFixed(2) + "%"; }
 
-  function makeTickValues(maxValue){
-    const base = [0, 1e6, 1e7, 1e8, 5e8, 1e9];
-    if(maxValue <= 1e9) return base;
+  // ---------- Y축 동적 스케일(작은 금액도 자동 확대) ----------
+  function niceCeil(x){
+    if(x <= 0) return 0;
+    const exp = Math.floor(Math.log10(x));
+    const f = x / Math.pow(10, exp);
+    const nf = (f <= 1) ? 1 : (f <= 2) ? 2 : (f <= 5) ? 5 : 10;
+    return nf * Math.pow(10, exp);
+  }
+  function makeDynamicTicks(maxValue){
+    const m = Math.max(0, Number(maxValue) || 0);
+    if(m === 0) return { ticks:[0,1], max:1 };
 
-    const out = base.slice();
-    let scale = 1e9;
-    while(scale < maxValue){
-      const candidates = [2*scale, 5*scale, 10*scale];
-      for(const v of candidates){
-        if(v > out[out.length-1]) out.push(v);
-        if(v >= maxValue) break;
-      }
-      scale *= 10;
-    }
-    return out;
+    const top = niceCeil(m * 1.08);   // 여유 8%
+    const targetTicks = 6;           // 6~7개 정도 느낌
+    const step = niceCeil(top / targetTicks);
+
+    const ticks = [0];
+    for(let v = step; v < top; v += step) ticks.push(v);
+    ticks.push(top);
+
+    return { ticks, max: top };
   }
   function yTickLabelKR(v){
     const n = Number(v);
     if(!Number.isFinite(n)) return v;
     if(n === 0) return "0";
-    if(n === 1e6) return "100만원";
-    if(n === 1e7) return "1000만원";
-    if(n === 1e8) return "1억";
-    if(n === 5e8) return "5억";
-    if(n === 1e9) return "10억";
     if(n >= 1e8) return `${(n/1e8).toLocaleString("ko-KR")}억`;
+    if(n >= 1e7) return `${(n/1e7).toFixed(1)}천만`.replace(/\.0천만$/,"천만");
+    if(n >= 1e6) return `${(n/1e6).toFixed(1)}백만`.replace(/\.0백만$/,"백만");
+    if(n >= 1e4) return `${(n/1e4).toFixed(1)}만`.replace(/\.0만$/,"만");
     return n.toLocaleString("ko-KR");
   }
 
@@ -465,14 +499,14 @@
     monthInput.inputMode = "numeric";
     monthInput.placeholder = "예: 24";
     if(monthVal !== "") monthInput.value = monthVal;
-    attachSelectAllOnFocus(monthInput);
+    attachClearOnFocus(monthInput);
 
     const amountInput = document.createElement("input");
     amountInput.type = "tel";
     amountInput.inputMode = "numeric";
     amountInput.autocomplete = "off";
     amountInput.placeholder = "예: 10,000,000";
-    attachSelectAllOnFocus(amountInput);
+    attachClearOnFocus(amountInput);
 
     // amount 콤마 자동 + 자동렌더
     amountInput.value = amountValDigits ? formatCommaFromDigits(amountValDigits) : "";
@@ -609,7 +643,7 @@
     return {N,H,T,i,totalPrincipal,finalAsset,profit,roi,series};
   }
 
-  // ---------- 표 렌더 ----------
+  // ---------- 표/그래프 렌더 ----------
   let stackChart;
   let fullSeries = [];
 
@@ -620,7 +654,6 @@
   function renderYearTable(series){
     const tb = $("yearTable");
     tb.innerHTML = "";
-
     const show = series.slice(0, 100);
 
     for(const row of show){
@@ -692,7 +725,9 @@
 
     const totals = principal.map((p,i)=>Math.max(0, p + profit[i]));
     const maxTotal = Math.max(0, ...totals);
-    const tickValues = makeTickValues(maxTotal);
+
+    const dyn = makeDynamicTicks(maxTotal);
+    const tickValues = dyn.ticks;
 
     const fixedTicksPlugin = {
       id: "fixedTicksPlugin",
@@ -722,7 +757,7 @@
             stacked: true,
             type: "linear",
             min: 0,
-            max: tickValues[tickValues.length - 1],
+            max: dyn.max,
             ticks: { callback: (v) => yTickLabelKR(v) }
           }
         },
@@ -811,11 +846,10 @@
   });
   $("rateMode").addEventListener("change", autoRender);
 
-  // 포커스 시 전체선택 적용(숫자 입력칸들)
+  // 포커스 시 빈칸 처리(PC/모바일 동일)
   ["startAge","annualReturn","investYears","investMonths","holdYears","holdMonths"].forEach(id=>{
-    attachSelectAllOnFocus($(id));
+    attachClearOnFocus($(id));
   });
-  attachSelectAllOnFocus($("rateMode"));
 
   // init comma inputs
   attachCommaInput($("principal"), 0);
