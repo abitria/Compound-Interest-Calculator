@@ -155,6 +155,40 @@
     th, td{border-bottom:1px solid rgba(255,255,255,.10);padding:9px 8px;text-align:right}
     th:first-child, td:first-child{text-align:left}
     th:nth-child(2), td:nth-child(2){text-align:left}
+
+    /* ---------- 모바일에서만 표 → 카드 ---------- */
+    .desktopOnly{display:block}
+    .mobileOnly{display:none}
+
+    .cardList{display:grid;gap:10px}
+    .miniCard{
+      border:1px solid var(--border);
+      border-radius:12px;
+      background:rgba(255,255,255,.04);
+      padding:10px;
+    }
+    .miniCard .top{
+      display:flex;
+      justify-content:space-between;
+      align-items:flex-start;
+      gap:10px;
+      margin-bottom:8px;
+    }
+    .miniCard .ttl{font-weight:1000;font-size:13px}
+    .miniCard .subttl{color:var(--muted);font-size:12px;margin-top:2px}
+    .kv{
+      display:grid;
+      grid-template-columns:96px 1fr;
+      gap:6px 10px;
+      font-size:12px;
+    }
+    .kv .k{color:var(--muted)}
+    .kv .v{text-align:right}
+
+    @media (max-width:980px){
+      .desktopOnly{display:none !important}
+      .mobileOnly{display:block}
+    }
   </style>
 </head>
 
@@ -168,11 +202,11 @@
     <div class="row3">
       <div>
         <label>투자 시작 나이</label>
-        <input id="startAge" type="number" min="0" value="1" />
+        <input id="startAge" type="number" inputmode="numeric" pattern="\d*" min="0" value="1" />
       </div>
       <div>
         <label>연평균 수익률(%)</label>
-        <input id="annualReturn" type="number" step="0.01" value="0" />
+        <input id="annualReturn" type="number" inputmode="numeric" pattern="\d*" step="0.01" value="0" />
       </div>
       <div>
         <label>월이율 방식</label>
@@ -186,34 +220,34 @@
     <div class="row">
       <div>
         <label>초기 투자원금(원)</label>
-        <input id="principal" inputmode="numeric" autocomplete="off" />
-        <div class="small">숫자 입력 중 자동으로 콤마(,)가 붙습니다.</div>
+        <!-- 콤마 필요: text + numeric keypad -->
+        <input id="principal" type="text" inputmode="numeric" pattern="\d*" autocomplete="off" />
       </div>
       <div>
         <label>매월 적립식 매수금액(원)</label>
-        <input id="monthly" inputmode="numeric" autocomplete="off" />
+        <input id="monthly" type="text" inputmode="numeric" pattern="\d*" autocomplete="off" />
       </div>
     </div>
 
     <div class="row">
       <div>
         <label>적립기간(년)</label>
-        <input id="investYears" type="number" min="0" value="0" />
+        <input id="investYears" type="number" inputmode="numeric" pattern="\d*" min="0" value="0" />
       </div>
       <div>
         <label>적립기간(월)</label>
-        <input id="investMonths" type="number" min="0" max="11" value="0" />
+        <input id="investMonths" type="number" inputmode="numeric" pattern="\d*" min="0" max="11" value="0" />
       </div>
     </div>
 
     <div class="row">
       <div>
         <label>거치기간(년)</label>
-        <input id="holdYears" type="number" min="0" value="0" />
+        <input id="holdYears" type="number" inputmode="numeric" pattern="\d*" min="0" value="0" />
       </div>
       <div>
         <label>거치기간(월)</label>
-        <input id="holdMonths" type="number" min="0" max="11" value="0" />
+        <input id="holdMonths" type="number" inputmode="numeric" pattern="\d*" min="0" max="11" value="0" />
       </div>
     </div>
 
@@ -264,7 +298,9 @@
 
     <div style="margin-top:14px">
       <div class="small" style="margin-bottom:8px">추가매수별 최종가치(추정)</div>
-      <div style="overflow:auto; border:1px solid var(--border); border-radius:12px">
+
+      <!-- 데스크톱: 표 -->
+      <div class="desktopOnly" style="overflow:auto; border:1px solid var(--border); border-radius:12px">
         <table>
           <thead>
             <tr>
@@ -278,6 +314,12 @@
           <tbody id="extraFVTable"></tbody>
         </table>
       </div>
+
+      <!-- 모바일: 카드 -->
+      <div class="mobileOnly">
+        <div class="cardList" id="extraFVCards"></div>
+      </div>
+
       <div class="small" style="margin-top:8px">
         * 투자기간(N개월)을 넘는 월차는 기본 설정에서는 반영하지 않습니다.
       </div>
@@ -314,8 +356,10 @@
     </div>
 
     <div style="margin-top:14px">
-      <div class="small" style="margin-bottom:8px">연도별 표 (현재 범위만, 최대 100행)</div>
-      <div style="overflow:auto; border:1px solid var(--border); border-radius:12px">
+      <div class="small" style="margin-bottom:8px">연도별 표 (현재 범위만)</div>
+
+      <!-- 데스크톱: 표 -->
+      <div class="desktopOnly" style="overflow:auto; border:1px solid var(--border); border-radius:12px">
         <table>
           <thead>
             <tr>
@@ -328,6 +372,11 @@
           </thead>
           <tbody id="yearTable"></tbody>
         </table>
+      </div>
+
+      <!-- 모바일: 카드 -->
+      <div class="mobileOnly">
+        <div class="cardList" id="yearCards"></div>
       </div>
     </div>
   </div>
@@ -443,12 +492,16 @@
   function createExtraRow(monthVal="", amountValDigits=""){
     const monthInput = document.createElement("input");
     monthInput.type = "number";
+    monthInput.inputMode = "numeric";
+    monthInput.pattern = "\\d*";
     monthInput.min = "0";
     monthInput.placeholder = "예: 24";
     if(monthVal !== "") monthInput.value = monthVal;
 
     const amountInput = document.createElement("input");
+    amountInput.type = "text";
     amountInput.inputMode = "numeric";
+    amountInput.pattern = "\\d*";
     amountInput.autocomplete = "off";
     amountInput.placeholder = "예: 10,000,000";
 
@@ -586,7 +639,7 @@
     return {N,H,T,i,totalPrincipal,finalAsset,profit,roi,series};
   }
 
-  // ---------- 차트/표 ----------
+  // ---------- 표/카드 렌더 ----------
   let stackChart;
   let fullSeries = [];
 
@@ -594,10 +647,15 @@
     return series.filter(d => d.year >= yMin && d.year <= yMax);
   }
 
-  function renderYearTable(series){
+  function renderYearTableAndCards(series){
     const tb = $("yearTable");
+    const cards = $("yearCards");
     tb.innerHTML = "";
+    cards.innerHTML = "";
+
     const show = series.slice(0, 100);
+
+    // 데스크톱 표
     for(const row of show){
       const tr = document.createElement("tr");
       tr.innerHTML = `
@@ -609,11 +667,40 @@
       `;
       tb.appendChild(tr);
     }
-  }
 
-  function renderExtraFVTable(params, out){
+    // 모바일 카드
+    for(const row of show){
+      const div = document.createElement("div");
+      div.className = "miniCard";
+      div.innerHTML = `
+        <div class="top">
+          <div>
+            <div class="ttl">${row.year}년차</div>
+            <div class="subttl">${row.age}세</div>
+          </div>
+          <div style="text-align:right">
+            <div class="subttl" style="margin:0; color:var(--muted); font-weight:900;">최종자산</div>
+            <div class="ttl">${fmtKRW(row.asset)}</div>
+            <div class="subttl">${approxKRFixed1(row.asset)}</div>
+          </div>
+        </div>
+    
+        <div class="kv">
+          <div class="k">투자원금</div>
+          <div class="v">${fmtKRW(row.principalPaid)}<br><span class="small">${approxKRFixed1(row.principalPaid)}</span></div>
+    
+          <div class="k">이익</div>
+          <div class="v">${fmtKRW(row.profit)}<br><span class="small">${approxKRFixed1(row.profit)}</span></div>
+        </div>
+      `;
+      cards.appendChild(div);
+    }
+
+  function renderExtraFVTableAndCards(params, out){
     const tb = $("extraFVTable");
+    const cards = $("extraFVCards");
     tb.innerHTML = "";
+    cards.innerHTML = "";
 
     const extras = params.extras;
     const N = out.N;
@@ -624,6 +711,11 @@
       const tr = document.createElement("tr");
       tr.innerHTML = `<td colspan="5" style="text-align:left">추가매수 입력이 없습니다.</td>`;
       tb.appendChild(tr);
+
+      const empty = document.createElement("div");
+      empty.className = "miniCard";
+      empty.innerHTML = `<div class="small">추가매수 입력이 없습니다.</div>`;
+      cards.appendChild(empty);
       return;
     }
 
@@ -639,6 +731,7 @@
       const fvText = Number.isFinite(fv) ? `${fmtKRW(fv)} (${approxKRFixed1(fv)})` : "N개월 초과(미반영)";
       const multText = Number.isFinite(mult) ? `${mult.toFixed(2)}x` : "-";
 
+      // 데스크톱 표
       const tr = document.createElement("tr");
       tr.innerHTML = `
         <td>${idx}</td>
@@ -648,6 +741,28 @@
         <td>${multText}</td>
       `;
       tb.appendChild(tr);
+
+      // 모바일 카드
+      const div = document.createElement("div");
+      div.className = "miniCard";
+      div.innerHTML = `
+        <div class="top">
+          <div>
+            <div class="ttl">추가매수 #${idx}</div>
+            <div class="subttl">월차 ${e.m}</div>
+          </div>
+          <div style="text-align:right">
+            <div class="ttl">${multText}</div>
+            <div class="subttl">배수</div>
+          </div>
+        </div>
+        <div class="kv">
+          <div class="k">금액</div><div class="v">${fmtKRW(e.a)}<br><span class="small">${approxKRFixed1(e.a)}</span></div>
+          <div class="k">최종가치</div><div class="v">${fvText}</div>
+        </div>
+      `;
+      cards.appendChild(div);
+
       idx++;
     }
   }
@@ -714,7 +829,7 @@
       plugins: [fixedTicksPlugin]
     });
 
-    renderYearTable(s);
+    renderYearTableAndCards(s);
   }
 
   function render(){
@@ -745,7 +860,7 @@
     $("k_profit").textContent = fmtKRWWithApprox(out.profit);
     $("k_roi").textContent = fmtPct(out.roi);
 
-    renderExtraFVTable(params, out);
+    renderExtraFVTableAndCards(params, out);
 
     fullSeries = out.series;
 
@@ -755,7 +870,6 @@
     rMin.min = "1"; rMin.max = String(Y);
     rMax.min = "1"; rMax.max = String(Y);
 
-    // keep current selection if possible
     const prevMin = Number(rMin.value)||1;
     const prevMax = Number(rMax.value)||Y;
     rMin.value = String(Math.min(Math.max(prevMin, 1), Y));
@@ -800,7 +914,7 @@
     autoRender();
   });
 
-  // init comma inputs (and attach auto render within)
+  // init comma inputs
   attachCommaInput($("principal"), 0);
   attachCommaInput($("monthly"), 0);
 
@@ -812,3 +926,5 @@
 </script>
 </body>
 </html>
+
+
